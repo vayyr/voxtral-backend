@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'models.dart';
 import 'storage.dart';
 import 'llm.dart';
+import 'home_screen.dart'; // Import home screen
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 const String kServerHost = '100.111.74.127';
@@ -45,7 +47,7 @@ class JobZeroApp extends StatelessWidget {
           surface: Colors.black,
         ),
       ),
-      home: const TranscriptionScreen(),
+      home: const HomeScreen(), // Set HomeScreen as the start screen
     );
   }
 }
@@ -53,7 +55,8 @@ class JobZeroApp extends StatelessWidget {
 // ─── Main Screen ────────────────────────────────────────────────────────────
 
 class TranscriptionScreen extends StatefulWidget {
-  const TranscriptionScreen({super.key});
+  final String? initialSessionId;
+  const TranscriptionScreen({super.key, this.initialSessionId});
 
   @override
   State<TranscriptionScreen> createState() => _TranscriptionScreenState();
@@ -111,7 +114,12 @@ class _TranscriptionScreenState extends State<TranscriptionScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    _loadLastSession();
+    // If ID provided, load it. Else create new.
+    if (widget.initialSessionId != null) {
+      _loadSession(widget.initialSessionId!);
+    } else {
+      _createNewSession();
+    }
   }
 
   @override
@@ -133,22 +141,21 @@ class _TranscriptionScreenState extends State<TranscriptionScreen>
 
   // ─── Session management ─────────────────────────────────────────────────
 
-  Future<void> _loadLastSession() async {
-    final lastId = await _storage.getLastSessionId();
-    if (lastId != null) {
-      final session = await _storage.loadSession(lastId);
-      if (session != null) {
-        setState(() {
-          _session = session;
-          _activeCardIndex = session.cards.isEmpty
-              ? -1
-              : session.cards.length - 1;
-          _cardKeys.clear();
-        });
-        return;
-      }
+  Future<void> _loadSession(String id) async {
+    final session = await _storage.loadSession(id);
+    if (session != null) {
+      setState(() {
+        _session = session;
+        _activeCardIndex = session.cards.isEmpty
+            ? -1
+            : session.cards.length - 1;
+        _cardKeys.clear();
+      });
+      _storage.saveLastSessionId(id);
+    } else {
+      // Fallback if load fails? Maybe create new
+      _createNewSession();
     }
-    _createNewSession();
   }
 
   void _createNewSession() {
@@ -219,6 +226,30 @@ class _TranscriptionScreenState extends State<TranscriptionScreen>
     _llm.summarize(text).then((summary) {
       if (mounted && summary.isNotEmpty) {
         setState(() => card.title = summary);
+        _scheduleSave();
+      }
+    });
+  }
+
+  void _generateSessionTitle() {
+    if (_session == null) return;
+    final cardsWithContent =
+        _session!.cards.where((c) => c.hasContent).toList();
+    if (cardsWithContent.isEmpty) return;
+
+    // Sample up to 3 random cards, take first ~200 chars from each
+    final rng = Random();
+    final sampled = List<TranscriptCard>.from(cardsWithContent)..shuffle(rng);
+    final chosen = sampled.take(3);
+
+    final snippet = chosen.map((c) {
+      final full = '${c.text} ${c.partialText}'.trim();
+      return full.length > 200 ? full.substring(0, 200) : full;
+    }).join('\n---\n');
+
+    _llm.summarize(snippet).then((summary) {
+      if (mounted && summary.isNotEmpty) {
+        setState(() => _session!.name = summary);
         _scheduleSave();
       }
     });
@@ -659,6 +690,26 @@ class _TranscriptionScreenState extends State<TranscriptionScreen>
               _session == null || (_session!.cards.isEmpty && !_isRecording)
                   ? _buildEmptyState()
                   : _buildTimeline(),
+              // Back button
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 8,
+                left: 8,
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.05),
+                    ),
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      size: 18,
+                      color: Colors.white.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+              ),
               if (_isSearching) _buildSearchOverlay(),
               if (_showNavigator) _buildNavigatorOverlay(),
             ],
@@ -1337,6 +1388,30 @@ class _TranscriptionScreenState extends State<TranscriptionScreen>
               ),
             ),
           ),
+          // Generate session title
+          if (_session != null &&
+              _session!.cards.any((c) => c.hasContent))
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: GestureDetector(
+                onTap: _generateSessionTitle,
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: kAccent.withValues(alpha: 0.12),
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 10,
+                    color: kAccent.withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+            ),
 
           const SizedBox(width: 12),
 
