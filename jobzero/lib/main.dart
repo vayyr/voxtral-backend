@@ -5,6 +5,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -1095,13 +1096,75 @@ class _TranscriptionScreenState extends State<TranscriptionScreen>
                               letterSpacing: 2,
                             ),
                           )
-                        : SelectableText(
-                            chat.response,
-                            style: TextStyle(
-                              fontSize: 13,
-                              height: 1.6,
-                              color: kAiAccent.withValues(alpha: 0.8),
-                              fontWeight: FontWeight.w300,
+                        : MarkdownBody(
+                            data: chat.response,
+                            selectable: true,
+                            styleSheet: MarkdownStyleSheet(
+                              p: TextStyle(
+                                fontSize: 13,
+                                height: 1.6,
+                                color: kAiAccent.withValues(alpha: 0.8),
+                                fontWeight: FontWeight.w300,
+                              ),
+                              h1: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: kAiAccent.withValues(alpha: 0.9),
+                              ),
+                              h2: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: kAiAccent.withValues(alpha: 0.9),
+                              ),
+                              h3: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: kAiAccent.withValues(alpha: 0.85),
+                              ),
+                              strong: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: kAiAccent.withValues(alpha: 0.9),
+                              ),
+                              em: TextStyle(
+                                fontSize: 13,
+                                fontStyle: FontStyle.italic,
+                                color: kAiAccent.withValues(alpha: 0.7),
+                              ),
+                              listBullet: TextStyle(
+                                fontSize: 13,
+                                color: kAiAccent.withValues(alpha: 0.5),
+                              ),
+                              code: TextStyle(
+                                fontSize: 12,
+                                fontFamily: 'SF Mono',
+                                color: kAccent.withValues(alpha: 0.8),
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.04,
+                                ),
+                              ),
+                              codeblockDecoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.03),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.06),
+                                ),
+                              ),
+                              blockquoteDecoration: BoxDecoration(
+                                border: Border(
+                                  left: BorderSide(
+                                    color: kAiAccent.withValues(alpha: 0.2),
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                              horizontalRuleDecoration: BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.06),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                   ),
